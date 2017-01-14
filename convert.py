@@ -12,14 +12,15 @@ prefix = "wiki/"
 mediawiki_ext = "mediawiki"
 markdown_ext = "md"
 user_table = "usernames.txt"
-user_blacklist = "user_blocklist.txt"
-default_email = "anonymous.contributor@example.org"
-base_url = "http://www.open-bio.org/" # Used for images etc; prefix is appended to this!
+user_blacklist = "user_blacklist.txt"
+default_email = "anonymous.contributor@gsi.dit.upm.es"
+base_url = "" # Used for images etc; prefix is appended to this!
 base_image_url = base_url + "w/images/" # Used for images
 page_prefixes_to_ignore = ["Help:", "MediaWiki:", "Talk:", "User:", "User talk:"] # Beware spaces vs _
 default_layout = "wiki" # Can also use None; note get tagpage for category listings
 git = "git" # assume on path
 pandoc = "pandoc" # assume on path
+write_matter = False
 
 
 def check_pandoc():
@@ -277,11 +278,14 @@ def dump_revision(mw_filename, md_filename, text, title):
             with open(mw_filename, "w") as handle:
                 handle.write(original.encode("utf8"))
             with open(md_filename, "w") as handle:
-                handle.write("---\n")
-                handle.write("title: %s\n" % title)
-                handle.write("permalink: %s\n" % make_url(title))
-                handle.write("redirect_to: /%s\n" % make_url(redirect))
-                handle.write("---\n\n")
+                if write_matter:
+                    handle.write("---\n")
+                    handle.write("title: ")
+                    handle.write(title.encode("utf8"))
+                    handle.write("\n")
+                    handle.write("permalink: %s\n" % make_url(title))
+                    handle.write("redirect_to: /%s\n" % make_url(redirect))
+                    handle.write("---\n\n")
                 handle.write("You should automatically be redirected to [%s](/%s)\n"
                              % (redirect, make_url(redirect)))
             print("Setup redirection %s --> %s" % (title, redirect))
@@ -314,32 +318,37 @@ def dump_revision(mw_filename, md_filename, text, title):
     if child.returncode or not stdout:
         return False
     with open(md_filename, "w") as handle:
-        handle.write("---\n")
-        handle.write("title: %s\n" % title)
-        handle.write("permalink: %s\n" % make_url(title))
-        if title.startswith("Category:"):
-            # This assumes have layout template called tagpage
-            # which will insert the tag listing automatically
-            # i.e. Behaves like MediaWiki for Category:XXX
-            # where we mapped XXX as a tag in Jekyll
-            handle.write("layout: tagpage\n")
-            handle.write("tag: %s\n" % title[9:])
-        else:
-            # Note a category page,
-            if default_layout:
-                handle.write("layout: %s\n" % default_layout)
-            if categories:
-                # Map them to Jekyll tags as can have more than one per page:
-                handle.write("tags:\n")
-                for category in categories:
-                    handle.write(" - %s\n" % category)
-        handle.write("---\n\n")
+        if write_matter:
+            handle.write("---\n")
+            handle.write("title: ")
+            handle.write(title.encode("utf8"))
+            handle.write("\n")
+            handle.write("permalink: %s\n" % make_url(title))
+            if title.startswith("Category:"):
+                # This assumes have layout template called tagpage
+                # which will insert the tag listing automatically
+                # i.e. Behaves like MediaWiki for Category:XXX
+                # where we mapped XXX as a tag in Jekyll
+                handle.write("layout: tagpage\n")
+                handle.write("tag: ")
+                handle.write(title[9:].encode("utf8"))
+                handle.write("\n: ")
+            else:
+                # Note a category page,
+                if default_layout:
+                    handle.write("layout: %s\n" % default_layout)
+                if categories:
+                    # Map them to Jekyll tags as can have more than one per page:
+                    handle.write("tags:\n")
+                    for category in categories:
+                        handle.write(" - %s\n" % category)
+            handle.write("---\n\n")
         handle.write(cleanup_markdown(stdout, make_url(title)))
     return True
 
 def run(cmd_string):
     #print(cmd_string)
-    return_code = os.system(cmd_string)
+    return_code = os.system(cmd_string.encode("utf8"))
     if return_code:
         sys.stderr.write("Error %i from: %s\n" % (return_code, cmd_string))
         sys.exit(return_code)
